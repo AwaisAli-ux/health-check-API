@@ -1,0 +1,158 @@
+{
+	"info": {
+		"_postman_id": "b3e9a182-1234-4a5d-8910-abcdef123456",
+		"name": "Book Store CRUD API",
+		"description": "Postman Collection for In-Memory Book Store CRUD API - Neurofive Solutions Internship Task 2",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Get Health Status",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://health-check-api-pp9b.onrender.com/health",
+					"protocol": "https",
+					"host": [
+						"health-check-api-pp9b",
+						"onrender",
+						"com"
+					],
+					"path": [
+						"health"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET All Books",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://health-check-api-pp9b.onrender.com/api/books",
+					"protocol": "https",
+					"host": [
+						"health-check-api-pp9b",
+						"onrender",
+						"com"
+					],
+					"path": [
+						"api",
+						"books"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET Single Book by ID",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://health-check-api-pp9b.onrender.com/api/books/1",
+					"protocol": "https",
+					"host": [
+						"health-check-api-pp9b",
+						"onrender",
+						"com"
+					],
+					"path": [
+						"api",
+						"books",
+						"1"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "POST Create Book",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"title\": \"Refactoring\",\n  \"author\": \"Martin Fowler\",\n  \"genre\": \"Software Architecture\",\n  \"publishedYear\": 1999,\n  \"available\": true\n}"
+				},
+				"url": {
+					"raw": "https://health-check-api-pp9b.onrender.com/api/books",
+					"protocol": "https",
+					"host": [
+						"health-check-api-pp9b",
+						"onrender",
+						"com"
+					],
+					"path": [
+						"api",
+						"books"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "PUT Update Book",
+			"request": {
+				"method": "PUT",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"title\": \"Refactoring (2nd Edition)\",\n  \"author\": \"Martin Fowler\",\n  \"genre\": \"Software Architecture\",\n  \"publishedYear\": 2018,\n  \"available\": true\n}"
+				},
+				"url": {
+					"raw": "https://health-check-api-pp9b.onrender.com/api/books/3",
+					"protocol": "https",
+					"host": [
+						"health-check-api-pp9b",
+						"onrender",
+						"com"
+					],
+					"path": [
+						"api",
+						"books",
+						"3"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "DELETE Book",
+			"request": {
+				"method": "DELETE",
+				"header": [],
+				"url": {
+					"raw": "https://health-check-api-pp9b.onrender.com/api/books/1",
+					"protocol": "https",
+					"host": [
+						"health-check-api-pp9b",
+						"onrender",
+						"com"
+					],
+					"path": [
+						"api",
+						"books",
+						"1"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}
