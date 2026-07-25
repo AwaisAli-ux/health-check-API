@@ -1,44 +1,60 @@
-# Book Store CRUD API (In-Memory)
+# PostgreSQL Relational Book Store CRUD API (Task 3)
 
-A full RESTful CRUD API built with Node.js and Express as part of the **Neurofive Solutions** internship program.
+A production-grade RESTful API built with **Node.js, Express, and PostgreSQL** as part of the **Neurofive Solutions** internship program.
 
 ##  Purpose
-Demonstrate basic REST conventions, in-memory data management, proper HTTP status code handling, custom request logging, and endpoint testing with Postman.
-
-## 🛠️ Tech Stack & Features
-- **Runtime**: Node.js & Express.js
-- **Data Persistence**: In-Memory (JS Array)
-- **Request Logging**: Custom middleware logging `[METHOD] URL - Status (ResponseTime)`
-- **Exported Postman Collection**: [`postman_collection.json`](./postman_collection.json)
+Migrate from in-memory storage to a real **PostgreSQL Relational Database**, implementing foreign key relationships (`authors` 1-to-N `books`), parameterized SQL queries to prevent SQL injection, environment variable security, and graceful database error handling.
 
 ---
 
-## 📌 API Endpoints & REST Conventions
+## 🗄️ Database Architecture & Relational Schema
 
-| Method | Endpoint | Description | Expected Status Codes |
-|--------|----------|-------------|-----------------------|
-| `GET` | `/health` | Health Check Endpoint | `200 OK` |
-| `GET` | `/api/books` | Get all books | `200 OK` |
-| `GET` | `/api/books/:id` | Get single book by ID | `200 OK`, `404 Not Found` |
-| `POST` | `/api/books` | Create a new book | `201 Created`, `400 Bad Request` |
-| `PUT` | `/api/books/:id` | Update an existing book by ID | `200 OK`, `400 Bad Request`, `404 Not Found` |
-| `DELETE` | `/api/books/:id` | Delete a book by ID | `200 OK`, `404 Not Found` |
+### 1. `authors` Table
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | `SERIAL` | `PRIMARY KEY` |
+| `name` | `VARCHAR(255)` | `NOT NULL` |
+| `bio` | `TEXT` | Optional |
+| `created_at` | `TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` |
+
+### 2. `books` Table (Relational Entity)
+| Column | Type | Constraints |
+|---|---|---|
+| `id` | `SERIAL` | `PRIMARY KEY` |
+| `title` | `VARCHAR(255)` | `NOT NULL` |
+| `genre` | `VARCHAR(100)` | `NOT NULL` |
+| `published_year` | `INT` | `NOT NULL` |
+| `available` | `BOOLEAN` | `DEFAULT TRUE` |
+| `author_id` | `INT` | `FOREIGN KEY REFERENCES authors(id) ON DELETE CASCADE` |
+| `created_at` | `TIMESTAMP` | `DEFAULT CURRENT_TIMESTAMP` |
 
 ---
 
-##  Resource Schema (Book)
+## 🛠️ Environment Variables Configuration (`.env`)
 
-Each Book entity contains 5 fields:
-```json
-{
-  "id": "1",
-  "title": "Clean Code",
-  "author": "Robert C. Martin",
-  "genre": "Software Engineering",
-  "publishedYear": 2008,
-  "available": true
-}
+Create a `.env` file in the project root:
+
+```env
+PORT=3000
+DATABASE_URL=postgresql://username:password@ep-xxxx.neon.tech/neondb?sslmode=require
 ```
+
+> 🔒 **Security Note**: Secrets and credentials are stored in `.env` and excluded from Git tracking via `.gitignore`.
+
+---
+
+## 📌 API Endpoints
+
+| Method | Endpoint | Description | Status Codes |
+|--------|----------|-------------|--------------|
+| `GET` | `/health` | Health check + SQL DB connectivity status | `200 OK`, `500 Error` |
+| `GET` | `/api/authors` | List all authors | `200 OK`, `500 Error` |
+| `POST` | `/api/authors` | Create a new author | `201 Created`, `400 Bad Request` |
+| `GET` | `/api/books` | Get all books with author info via SQL `JOIN` | `200 OK`, `500 Error` |
+| `GET` | `/api/books/:id` | Get single book by ID with author info | `200 OK`, `404 Not Found` |
+| `POST` | `/api/books` | Create a book linked to `author_id` | `201 Created`, `400 Bad Request` |
+| `PUT` | `/api/books/:id` | Update an existing book | `200 OK`, `400 Bad Request`, `404 Not Found` |
+| `DELETE` | `/api/books/:id` | Delete a book by ID | `200 OK`, `404 Not Found` |
 
 ---
 
@@ -55,25 +71,17 @@ Each Book entity contains 5 fields:
    npm install
    ```
 
-3. **Run local server**
+3. **Configure Environment**
+   Copy `.env.example` to `.env` and set your PostgreSQL connection string (`DATABASE_URL`).
+
+4. **Run server**
    ```bash
    npm start
    ```
-   Server will run on `http://localhost:3000`.
+   Tables will automatically be created on server startup.
 
 ---
 
-## 🌐 Live Public Deployment
+## 🧪 Postman Testing
 
-- **Base URL**: `https://health-check-api-pp9b.onrender.com`
-- **Health Check**: `https://health-check-api-pp9b.onrender.com/health`
-- **Books Resource**: `https://health-check-api-pp9b.onrender.com/api/books`
-
----
-
-## 🧪 Testing with Postman
-
-1. Open **Postman**.
-2. Click **Import** button in the top-left corner.
-3. Select and upload [`postman_collection.json`](./postman_collection.json) from this project folder.
-4. Run requests to test `GET`, `POST`, `PUT`, and `DELETE`.
+Import [`postman_collection.json`](./postman_collection.json) directly into Postman to test all endpoints.

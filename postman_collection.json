@@ -1,13 +1,13 @@
 {
 	"info": {
 		"_postman_id": "b3e9a182-1234-4a5d-8910-abcdef123456",
-		"name": "Book Store CRUD API",
-		"description": "Postman Collection for In-Memory Book Store CRUD API - Neurofive Solutions Internship Task 2",
+		"name": "PostgreSQL Book Store CRUD API",
+		"description": "Postman Collection for PostgreSQL Relational Database CRUD API - Neurofive Solutions Internship Task 3",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
 		{
-			"name": "Get Health Status",
+			"name": "Get Health Status (DB Check)",
 			"request": {
 				"method": "GET",
 				"header": [],
@@ -27,7 +27,90 @@
 			"response": []
 		},
 		{
-			"name": "GET All Books",
+			"name": "POST Create Author",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"name\": \"Robert C. Martin\",\n  \"bio\": \"Software Engineer and Author of Clean Code\"\n}"
+				},
+				"url": {
+					"raw": "https://health-check-api-pp9b.onrender.com/api/authors",
+					"protocol": "https",
+					"host": [
+						"health-check-api-pp9b",
+						"onrender",
+						"com"
+					],
+					"path": [
+						"api",
+						"authors"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET All Authors",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://health-check-api-pp9b.onrender.com/api/authors",
+					"protocol": "https",
+					"host": [
+						"health-check-api-pp9b",
+						"onrender",
+						"com"
+					],
+					"path": [
+						"api",
+						"authors"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "POST Create Book",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"title\": \"Clean Code\",\n  \"genre\": \"Software Engineering\",\n  \"publishedYear\": 2008,\n  \"available\": true,\n  \"authorId\": 1\n}"
+				},
+				"url": {
+					"raw": "https://health-check-api-pp9b.onrender.com/api/books",
+					"protocol": "https",
+					"host": [
+						"health-check-api-pp9b",
+						"onrender",
+						"com"
+					],
+					"path": [
+						"api",
+						"books"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "GET All Books (with JOIN Author)",
 			"request": {
 				"method": "GET",
 				"header": [],
@@ -70,37 +153,6 @@
 			"response": []
 		},
 		{
-			"name": "POST Create Book",
-			"request": {
-				"method": "POST",
-				"header": [
-					{
-						"key": "Content-Type",
-						"value": "application/json",
-						"type": "text"
-					}
-				],
-				"body": {
-					"mode": "raw",
-					"raw": "{\n  \"title\": \"Refactoring\",\n  \"author\": \"Martin Fowler\",\n  \"genre\": \"Software Architecture\",\n  \"publishedYear\": 1999,\n  \"available\": true\n}"
-				},
-				"url": {
-					"raw": "https://health-check-api-pp9b.onrender.com/api/books",
-					"protocol": "https",
-					"host": [
-						"health-check-api-pp9b",
-						"onrender",
-						"com"
-					],
-					"path": [
-						"api",
-						"books"
-					]
-				}
-			},
-			"response": []
-		},
-		{
 			"name": "PUT Update Book",
 			"request": {
 				"method": "PUT",
@@ -113,10 +165,10 @@
 				],
 				"body": {
 					"mode": "raw",
-					"raw": "{\n  \"title\": \"Refactoring (2nd Edition)\",\n  \"author\": \"Martin Fowler\",\n  \"genre\": \"Software Architecture\",\n  \"publishedYear\": 2018,\n  \"available\": true\n}"
+					"raw": "{\n  \"title\": \"Clean Code: Refactored Edition\",\n  \"genre\": \"Software Architecture\",\n  \"publishedYear\": 2023,\n  \"available\": true,\n  \"authorId\": 1\n}"
 				},
 				"url": {
-					"raw": "https://health-check-api-pp9b.onrender.com/api/books/3",
+					"raw": "https://health-check-api-pp9b.onrender.com/api/books/1",
 					"protocol": "https",
 					"host": [
 						"health-check-api-pp9b",
@@ -126,7 +178,7 @@
 					"path": [
 						"api",
 						"books",
-						"3"
+						"1"
 					]
 				}
 			},
