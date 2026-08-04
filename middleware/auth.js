@@ -18,8 +18,9 @@ const authenticateToken = (req, res, next) => {
   }
 
   try {
-    // Verify token using secret key
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // Verify token using secret key (with fallback)
+    const secretKey = process.env.JWT_SECRET || "super_secret_jwt_key_health_check_api_2026";
+    const decoded = jwt.verify(token, secretKey);
     
     // Attach decoded user info to request object
     req.user = decoded;

@@ -128,10 +128,11 @@ app.post("/api/auth/login", async (req, res) => {
       });
     }
 
-    // Issue JWT token
+    // Issue JWT token (with fallback secret key)
+    const secretKey = process.env.JWT_SECRET || "super_secret_jwt_key_health_check_api_2026";
     const token = jwt.sign(
       { id: user.id, username: user.username, email: user.email },
-      process.env.JWT_SECRET,
+      secretKey,
       { expiresIn: process.env.JWT_EXPIRES_IN || "1h" }
     );
 
