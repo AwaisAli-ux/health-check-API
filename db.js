@@ -43,7 +43,18 @@ const initDb = async () => {
       );
     `);
 
-    console.log(" SQL Tables (authors, books) verified / created successfully!");
+    // Table 3: Users (Authentication & Password Hashing)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id SERIAL PRIMARY KEY,
+        username VARCHAR(100) NOT NULL UNIQUE,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    console.log(" SQL Tables (authors, books, users) verified / created successfully!");
     client.release();
   } catch (err) {
     console.error("❌ Database Connection Error:", err.message);

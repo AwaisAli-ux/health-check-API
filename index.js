@@ -1,6 +1,9 @@
 const express = require("express");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const { pool, initDb } = require("./db");
+const authenticateToken = require("./middleware/auth");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -43,10 +46,136 @@ app.get("/health", async (req, res) => {
 });
 
 // ==========================================
+// 📌 AUTHENTICATION ENDPOINTS (JWT + Bcrypt)
+// ==========================================
+
+// POST /api/auth/signup - Register new user
+app.post("/api/auth/signup", async (req, res) => {
+  const { username, email, password } = req.body;
+
+  if (!username || !email || !password) {
+    return res.status(400).json({
+      success: false,
+      message: "Please provide username, email, and password"
+    });
+  }
+
+  try {
+    // Check if email or username already exists
+    const existingUser = await pool.query(
+      "SELECT id FROM users WHERE email = $1 OR username = $2",
+      [email.toLowerCase(), username.toLowerCase()]
+    );
+
+    if (existingUser.rows.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: "User with this email or username already exists"
+      });
+    }
+
+    // Hash password using bcryptjs
+    const saltRounds = 10;
+    const passwordHash = await bcrypt.hash(password, saltRounds);
+
+    // Insert user into PostgreSQL
+    const result = await pool.query(
+      "INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email, created_at AS \"createdAt\"",
+      [username, email.toLowerCase(), passwordHash]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: "User registered successfully",
+      data: result.rows[0]
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Database Error", error: err.message });
+  }
+});
+
+// POST /api/auth/login - User login & JWT issuance
+app.post("/api/auth/login", async (req, res) => {
+  const { email, password } = req.body;
+
+  if (!email || !password) {
+    return res.status(400).json({
+      success: false,
+      message: "Please provide email and password"
+    });
+  }
+
+  try {
+    // Find user by email
+    const result = await pool.query("SELECT * FROM users WHERE email = $1", [email.toLowerCase()]);
+
+    if (result.rows.length === 0) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password"
+      });
+    }
+
+    const user = result.rows[0];
+
+    // Compare password with hashed password
+    const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid email or password"
+      });
+    }
+
+    // Issue JWT token
+    const token = jwt.sign(
+      { id: user.id, username: user.username, email: user.email },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN || "1h" }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Login successful",
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email
+      }
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Database Error", error: err.message });
+  }
+});
+
+// GET /api/auth/me - Protected route to get logged-in user profile
+app.get("/api/auth/me", authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, username, email, created_at AS \"createdAt\" FROM users WHERE id = $1",
+      [req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: result.rows[0]
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, message: "Database Error", error: err.message });
+  }
+});
+
+// ==========================================
 // 📌 AUTHORS ENDPOINTS (Relational Entity)
 // ==========================================
 
-// GET /api/authors - List all authors
+// GET /api/authors - List all authors (Public)
 app.get("/api/authors", async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM authors ORDER BY id ASC");
@@ -60,8 +189,8 @@ app.get("/api/authors", async (req, res) => {
   }
 });
 
-// POST /api/authors - Create a new author
-app.post("/api/authors", async (req, res) => {
+// POST /api/authors - Create a new author (Protected)
+app.post("/api/authors", authenticateToken, async (req, res) => {
   const { name, bio } = req.body;
 
   if (!name) {
@@ -158,8 +287,8 @@ app.get("/api/books/:id", async (req, res) => {
   }
 });
 
-// POST /api/books - Create a new book
-app.post("/api/books", async (req, res) => {
+// POST /api/books - Create a new book (Protected)
+app.post("/api/books", authenticateToken, async (req, res) => {
   const { title, genre, publishedYear, available, authorId } = req.body;
 
   if (!title || !genre || !publishedYear || !authorId) {
@@ -202,8 +331,8 @@ app.post("/api/books", async (req, res) => {
   }
 });
 
-// PUT /api/books/:id - Update an existing book
-app.put("/api/books/:id", async (req, res) => {
+// PUT /api/books/:id - Update an existing book (Protected)
+app.put("/api/books/:id", authenticateToken, async (req, res) => {
   const bookId = parseInt(req.params.id, 10);
   if (isNaN(bookId)) {
     return res.status(400).json({ success: false, message: "Invalid book ID" });
@@ -248,8 +377,8 @@ app.put("/api/books/:id", async (req, res) => {
   }
 });
 
-// DELETE /api/books/:id - Delete a book
-app.delete("/api/books/:id", async (req, res) => {
+// DELETE /api/books/:id - Delete a book (Protected)
+app.delete("/api/books/:id", authenticateToken, async (req, res) => {
   const bookId = parseInt(req.params.id, 10);
   if (isNaN(bookId)) {
     return res.status(400).json({ success: false, message: "Invalid book ID" });

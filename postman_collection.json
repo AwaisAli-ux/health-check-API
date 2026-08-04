@@ -1,8 +1,8 @@
 {
 	"info": {
 		"_postman_id": "b3e9a182-1234-4a5d-8910-abcdef123456",
-		"name": "PostgreSQL Book Store CRUD API",
-		"description": "Postman Collection for PostgreSQL Relational Database CRUD API - Neurofive Solutions Internship Task 3",
+		"name": "PostgreSQL Book Store REST API with JWT Auth",
+		"description": "Postman Collection for PostgreSQL REST API featuring JWT Authentication, Password Hashing, Relational DB, and Protected Routes.",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
 	"item": [
@@ -27,13 +27,110 @@
 			"response": []
 		},
 		{
-			"name": "POST Create Author",
+			"name": "Auth - Signup User",
 			"request": {
 				"method": "POST",
 				"header": [
 					{
 						"key": "Content-Type",
 						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"username\": \"johndoe\",\n  \"email\": \"john@example.com\",\n  \"password\": \"Password123!\"\n}"
+				},
+				"url": {
+					"raw": "https://health-check-api-pp9b.onrender.com/api/auth/signup",
+					"protocol": "https",
+					"host": [
+						"health-check-api-pp9b",
+						"onrender",
+						"com"
+					],
+					"path": [
+						"api",
+						"auth",
+						"signup"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Auth - Login User",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n  \"email\": \"john@example.com\",\n  \"password\": \"Password123!\"\n}"
+				},
+				"url": {
+					"raw": "https://health-check-api-pp9b.onrender.com/api/auth/login",
+					"protocol": "https",
+					"host": [
+						"health-check-api-pp9b",
+						"onrender",
+						"com"
+					],
+					"path": [
+						"api",
+						"auth",
+						"login"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Auth - Get Profile (Protected)",
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer YOUR_JWT_TOKEN_HERE",
+						"type": "text"
+					}
+				],
+				"url": {
+					"raw": "https://health-check-api-pp9b.onrender.com/api/auth/me",
+					"protocol": "https",
+					"host": [
+						"health-check-api-pp9b",
+						"onrender",
+						"com"
+					],
+					"path": [
+						"api",
+						"auth",
+						"me"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "POST Create Author (Protected)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer YOUR_JWT_TOKEN_HERE",
 						"type": "text"
 					}
 				],
@@ -58,7 +155,7 @@
 			"response": []
 		},
 		{
-			"name": "GET All Authors",
+			"name": "GET All Authors (Public)",
 			"request": {
 				"method": "GET",
 				"header": [],
@@ -79,13 +176,18 @@
 			"response": []
 		},
 		{
-			"name": "POST Create Book",
+			"name": "POST Create Book (Protected)",
 			"request": {
 				"method": "POST",
 				"header": [
 					{
 						"key": "Content-Type",
 						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer YOUR_JWT_TOKEN_HERE",
 						"type": "text"
 					}
 				],
@@ -110,7 +212,7 @@
 			"response": []
 		},
 		{
-			"name": "GET All Books (with JOIN Author)",
+			"name": "GET All Books (Public)",
 			"request": {
 				"method": "GET",
 				"header": [],
@@ -131,7 +233,7 @@
 			"response": []
 		},
 		{
-			"name": "GET Single Book by ID",
+			"name": "GET Single Book by ID (Public)",
 			"request": {
 				"method": "GET",
 				"header": [],
@@ -153,13 +255,18 @@
 			"response": []
 		},
 		{
-			"name": "PUT Update Book",
+			"name": "PUT Update Book (Protected)",
 			"request": {
 				"method": "PUT",
 				"header": [
 					{
 						"key": "Content-Type",
 						"value": "application/json",
+						"type": "text"
+					},
+					{
+						"key": "Authorization",
+						"value": "Bearer YOUR_JWT_TOKEN_HERE",
 						"type": "text"
 					}
 				],
@@ -185,10 +292,16 @@
 			"response": []
 		},
 		{
-			"name": "DELETE Book",
+			"name": "DELETE Book (Protected)",
 			"request": {
 				"method": "DELETE",
-				"header": [],
+				"header": [
+					{
+						"key": "Authorization",
+						"value": "Bearer YOUR_JWT_TOKEN_HERE",
+						"type": "text"
+					}
+				],
 				"url": {
 					"raw": "https://health-check-api-pp9b.onrender.com/api/books/1",
 					"protocol": "https",
