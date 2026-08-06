@@ -12,7 +12,9 @@ const {
   validateLogin,
   validateAuthor,
   validateBook,
-  validateIdParam
+  validateReview,
+  validateIdParam,
+  validateBookQuery
 } = require("./middleware/validator");
 
 const app = express();
@@ -113,9 +115,7 @@ app.post("/api/auth/login", validateLogin, async (req, res, next) => {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
-        error: {
-          code: "INVALID_CREDENTIALS"
-        }
+        error: { code: "INVALID_CREDENTIALS" }
       });
     }
 
@@ -128,9 +128,7 @@ app.post("/api/auth/login", validateLogin, async (req, res, next) => {
       return res.status(401).json({
         success: false,
         message: "Invalid email or password",
-        error: {
-          code: "INVALID_CREDENTIALS"
-        }
+        error: { code: "INVALID_CREDENTIALS" }
       });
     }
 
@@ -204,6 +202,37 @@ app.get("/api/authors", async (req, res, next) => {
   }
 });
 
+// GET /api/authors/:id/books - NESTED ROUTE: Get all books by a specific author
+app.get("/api/authors/:id/books", validateIdParam, async (req, res, next) => {
+  const authorId = parseInt(req.params.id, 10);
+
+  try {
+    const authorCheck = await pool.query("SELECT * FROM authors WHERE id = $1", [authorId]);
+    if (authorCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: `Author with id ${authorId} not found`,
+        error: { code: "NOT_FOUND" }
+      });
+    }
+
+    const booksResult = await pool.query(
+      "SELECT id, title, genre, published_year AS \"publishedYear\", available, created_at AS \"createdAt\" FROM books WHERE author_id = $1 ORDER BY id ASC",
+      [authorId]
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Books for author '${authorCheck.rows[0].name}' retrieved successfully`,
+      author: authorCheck.rows[0],
+      count: booksResult.rowCount,
+      data: booksResult.rows
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 // POST /api/authors - Create a new author (Protected + Validated)
 app.post("/api/authors", authenticateToken, validateAuthor, async (req, res, next) => {
   const { name, bio } = req.body;
@@ -224,13 +253,69 @@ app.post("/api/authors", authenticateToken, validateAuthor, async (req, res, nex
 });
 
 // ==========================================
-// 📌 BOOKS CRUD ENDPOINTS (Main Resource with JOIN)
+// 📌 BOOKS ENDPOINTS (Pagination, Searching, Filtering, Sorting)
 // ==========================================
 
-// GET /api/books - List all books (with Author details via SQL JOIN)
-app.get("/api/books", async (req, res, next) => {
+// GET /api/books - Paginated, Filtered, Searched & Sorted List of Books
+app.get("/api/books", validateBookQuery, async (req, res, next) => {
+  const page = parseInt(req.query.page, 10) || 1;
+  const limit = parseInt(req.query.limit, 10) || 10;
+  const offset = (page - 1) * limit;
+
+  const { genre, available, authorId, search } = req.query;
+  let sortBy = req.query.sortBy || "id";
+  let sortOrder = (req.query.sortOrder || "ASC").toUpperCase();
+
+  // Map sort parameters to exact SQL columns
+  const validSortColumns = {
+    id: "b.id",
+    title: "b.title",
+    publishedYear: "b.published_year",
+    createdAt: "b.created_at"
+  };
+  const sortColumn = validSortColumns[sortBy] || "b.id";
+  if (!["ASC", "DESC"].includes(sortOrder)) sortOrder = "ASC";
+
   try {
-    const query = `
+    // Dynamic SQL Query Builder
+    let whereClauses = [];
+    let queryParams = [];
+    let paramIndex = 1;
+
+    if (search) {
+      whereClauses.push(`(b.title ILIKE $${paramIndex} OR b.genre ILIKE $${paramIndex})`);
+      queryParams.push(`%${search}%`);
+      paramIndex++;
+    }
+
+    if (genre) {
+      whereClauses.push(`b.genre ILIKE $${paramIndex}`);
+      queryParams.push(genre);
+      paramIndex++;
+    }
+
+    if (available !== undefined) {
+      whereClauses.push(`b.available = $${paramIndex}`);
+      queryParams.push(available === "true" || available === true);
+      paramIndex++;
+    }
+
+    if (authorId) {
+      whereClauses.push(`b.author_id = $${paramIndex}`);
+      queryParams.push(parseInt(authorId, 10));
+      paramIndex++;
+    }
+
+    const whereSql = whereClauses.length > 0 ? "WHERE " + whereClauses.join(" AND ") : "";
+
+    // 1. Get total matching items count
+    const countQuery = `SELECT COUNT(*) FROM books b ${whereSql}`;
+    const countResult = await pool.query(countQuery, queryParams);
+    const totalItems = parseInt(countResult.rows[0].count, 10);
+    const totalPages = Math.ceil(totalItems / limit) || 1;
+
+    // 2. Fetch paginated data
+    const dataQuery = `
       SELECT 
         b.id, 
         b.title, 
@@ -245,14 +330,26 @@ app.get("/api/books", async (req, res, next) => {
         ) AS author
       FROM books b
       LEFT JOIN authors a ON b.author_id = a.id
-      ORDER BY b.id ASC;
+      ${whereSql}
+      ORDER BY ${sortColumn} ${sortOrder}
+      LIMIT $${paramIndex} OFFSET $${paramIndex + 1};
     `;
-    const result = await pool.query(query);
+
+    const dataParams = [...queryParams, limit, offset];
+    const dataResult = await pool.query(dataQuery, dataParams);
+
     res.status(200).json({
       success: true,
       message: "Books retrieved successfully",
-      count: result.rowCount,
-      data: result.rows
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalItems,
+        itemsPerPage: limit,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1
+      },
+      data: dataResult.rows
     });
   } catch (err) {
     next(err);
@@ -407,6 +504,98 @@ app.delete("/api/books/:id", authenticateToken, validateIdParam, async (req, res
       success: true,
       message: "Book deleted successfully from PostgreSQL Database",
       data: result.rows[0]
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ==========================================
+// 📌 REVIEWS ENDPOINTS (Nested Resource: 1-to-N Books -> Reviews)
+// ==========================================
+
+// GET /api/books/:id/reviews - NESTED ROUTE: List all reviews for a specific book
+app.get("/api/books/:id/reviews", validateIdParam, async (req, res, next) => {
+  const bookId = parseInt(req.params.id, 10);
+
+  try {
+    const bookCheck = await pool.query("SELECT title FROM books WHERE id = $1", [bookId]);
+    if (bookCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: `Book with id ${bookId} not found`,
+        error: { code: "NOT_FOUND" }
+      });
+    }
+
+    const query = `
+      SELECT 
+        r.id, 
+        r.rating, 
+        r.comment, 
+        r.created_at AS "createdAt",
+        json_build_object(
+          'id', u.id,
+          'username', u.username
+        ) AS user
+      FROM reviews r
+      JOIN users u ON r.user_id = u.id
+      WHERE r.book_id = $1
+      ORDER BY r.id DESC;
+    `;
+    const result = await pool.query(query, [bookId]);
+
+    // Calculate average rating
+    const avgResult = await pool.query("SELECT AVG(rating)::numeric(10,1) AS average FROM reviews WHERE book_id = $1", [bookId]);
+    const averageRating = avgResult.rows[0].average ? parseFloat(avgResult.rows[0].average) : null;
+
+    res.status(200).json({
+      success: true,
+      message: `Reviews for '${bookCheck.rows[0].title}' retrieved successfully`,
+      bookTitle: bookCheck.rows[0].title,
+      averageRating,
+      count: result.rowCount,
+      data: result.rows
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/books/:id/reviews - NESTED ROUTE: Add a review for a specific book (Protected + Validated)
+app.post("/api/books/:id/reviews", authenticateToken, validateReview, async (req, res, next) => {
+  const bookId = parseInt(req.params.id, 10);
+  const { rating, comment } = req.body;
+  const userId = req.user.id;
+
+  try {
+    const bookCheck = await pool.query("SELECT id, title FROM books WHERE id = $1", [bookId]);
+    if (bookCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: `Book with id ${bookId} not found`,
+        error: { code: "NOT_FOUND" }
+      });
+    }
+
+    const insertQuery = `
+      INSERT INTO reviews (rating, comment, book_id, user_id)
+      VALUES ($1, $2, $3, $4)
+      RETURNING id, rating, comment, created_at AS "createdAt";
+    `;
+    const result = await pool.query(insertQuery, [Number(rating), comment, bookId, userId]);
+
+    res.status(201).json({
+      success: true,
+      message: `Review created successfully for '${bookCheck.rows[0].title}'`,
+      data: {
+        ...result.rows[0],
+        bookId,
+        user: {
+          id: userId,
+          username: req.user.username
+        }
+      }
     });
   } catch (err) {
     next(err);

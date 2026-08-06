@@ -351,10 +351,13 @@
         <i class="fa-solid fa-right-to-bracket"></i> Login
       </button>
       <button class="tab-btn" onclick="switchTab('dashboard')">
-        <i class="fa-solid fa-shield-halved"></i> Protected Dashboard
+        <i class="fa-solid fa-shield-halved"></i> Dashboard
+      </button>
+      <button class="tab-btn" onclick="switchTab('pagination')">
+        <i class="fa-solid fa-book-open"></i> Search & Pagination
       </button>
       <button class="tab-btn" onclick="switchTab('validation')">
-        <i class="fa-solid fa-bug"></i> Intentionally Break API
+        <i class="fa-solid fa-bug"></i> Break API Demo
       </button>
     </div>
 
@@ -469,6 +472,108 @@
       </form>
     </div>
 
+    <!-- 5. PAGINATION & REVIEWS CARD -->
+    <div id="pagination-card" class="card">
+      <div class="card-title">
+        <i class="fa-solid fa-book-open" style="color: var(--accent-blue);"></i>
+        Paginated Search, Filtering & Reviews Portal
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 1rem;">
+        <div class="form-group">
+          <label><i class="fa-solid fa-magnifying-glass"></i> Search (Title/Genre)</label>
+          <input type="text" id="search-input" placeholder="e.g. Clean or Architecture" oninput="loadPaginatedBooks(1)">
+        </div>
+        <div class="form-group">
+          <label><i class="fa-solid fa-filter"></i> Filter Genre</label>
+          <select id="genre-filter" onchange="loadPaginatedBooks(1)">
+            <option value="">All Genres</option>
+            <option value="Software Engineering">Software Engineering</option>
+            <option value="System Architecture">System Architecture</option>
+            <option value="Computer Science">Computer Science</option>
+            <option value="Algorithms">Algorithms</option>
+            <option value="Cybersecurity">Cybersecurity</option>
+            <option value="Artificial Intelligence">Artificial Intelligence</option>
+            <option value="Business Tech">Business Tech</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 1.5rem;">
+        <div class="form-group">
+          <label><i class="fa-solid fa-arrow-down-short-wide"></i> Sort By</label>
+          <select id="sort-by" onchange="loadPaginatedBooks(1)">
+            <option value="id">ID</option>
+            <option value="title">Title</option>
+            <option value="publishedYear">Published Year</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label><i class="fa-solid fa-sliders"></i> Items Per Page (Limit)</label>
+          <select id="limit-select" onchange="loadPaginatedBooks(1)">
+            <option value="5">5 Per Page</option>
+            <option value="10" selected>10 Per Page</option>
+            <option value="20">20 Per Page</option>
+          </select>
+        </div>
+      </div>
+
+      <button class="btn btn-primary" onclick="loadPaginatedBooks(1)" style="margin-bottom: 1.5rem;">
+        <i class="fa-solid fa-arrows-rotate"></i> Fetch Paginated Dataset (`GET /api/books`)
+      </button>
+
+      <div style="display: flex; gap: 0.5rem; justify-content: space-between; align-items: center; background: rgba(15,23,42,0.6); padding: 0.75rem 1rem; border-radius: 0.75rem; border: 1px solid var(--card-border); margin-bottom: 1.5rem;">
+        <button class="btn btn-outline" style="width: auto; padding: 0.4rem 1rem;" id="prev-page-btn" onclick="prevPage()">
+          <i class="fa-solid fa-chevron-left"></i> Previous
+        </button>
+        <span id="page-indicator" style="font-size: 0.9rem; font-weight: 600; color: #a78bfa;">Page 1 of 4 (36 Items)</span>
+        <button class="btn btn-outline" style="width: auto; padding: 0.4rem 1rem;" id="next-page-btn" onclick="nextPage()">
+          Next <i class="fa-solid fa-chevron-right"></i>
+        </button>
+      </div>
+
+      <hr style="border-color: rgba(255,255,255,0.08); margin: 1.5rem 0;">
+
+      <div class="card-title" style="font-size: 1.1rem;">
+        <i class="fa-solid fa-comments" style="color: var(--accent-purple);"></i>
+        Nested Resource: Book Reviews (`GET /api/books/:id/reviews`)
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 1rem;">
+        <div class="form-group">
+          <label>Book ID to View/Add Reviews</label>
+          <input type="number" id="review-book-id" value="1">
+        </div>
+        <div class="form-group" style="display: flex; align-items: flex-end;">
+          <button class="btn btn-primary" onclick="fetchBookReviews()">
+            <i class="fa-solid fa-eye"></i> View Reviews (`GET /api/books/:id/reviews`)
+          </button>
+        </div>
+      </div>
+
+      <form id="add-review-form" onsubmit="handlePostReview(event)">
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Rating (1 to 5 Stars)</label>
+            <select id="review-rating" required>
+              <option value="5">⭐⭐⭐⭐⭐ (5 - Excellent)</option>
+              <option value="4">⭐⭐⭐⭐ (4 - Very Good)</option>
+              <option value="3">⭐⭐⭐ (3 - Average)</option>
+              <option value="2">⭐⭐ (2 - Poor)</option>
+              <option value="1">⭐ (1 - Terrible)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Review Comment</label>
+            <input type="text" id="review-comment" placeholder="Write your review..." required minlength="3">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, var(--accent-purple), var(--accent-pink));">
+          <i class="fa-solid fa-paper-plane"></i> Submit Protected Review (`POST /api/books/:id/reviews`)
+        </button>
+      </form>
+    </div>
+
     <!-- 4. INTENTIONALLY BREAK API CARD -->
     <div id="validation-card" class="card">
       <div class="card-title">
@@ -542,6 +647,9 @@
         });
     }
 
+    let currentPageState = 1;
+    let totalPagesState = 1;
+
     function switchTab(tabName) {
       document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
       document.querySelectorAll(".card").forEach(card => card.classList.remove("active"));
@@ -555,8 +663,12 @@
       } else if (tabName === 'dashboard') {
         document.querySelectorAll(".tab-btn")[2].classList.add("active");
         document.getElementById("dashboard-card").classList.add("active");
-      } else if (tabName === 'validation') {
+      } else if (tabName === 'pagination') {
         document.querySelectorAll(".tab-btn")[3].classList.add("active");
+        document.getElementById("pagination-card").classList.add("active");
+        loadPaginatedBooks(1);
+      } else if (tabName === 'validation') {
+        document.querySelectorAll(".tab-btn")[4].classList.add("active");
         document.getElementById("validation-card").classList.add("active");
       }
     }
@@ -782,6 +894,98 @@
         });
         const data = await res.json();
         updateConsole(res.status, data);
+      } catch (err) {
+        updateConsole(500, { error: err.message });
+      }
+    }
+
+    // --- PAGINATION, FILTER & REVIEWS HANDLERS ---
+    async function loadPaginatedBooks(page = 1) {
+      currentPageState = page;
+      const search = document.getElementById("search-input").value;
+      const genre = document.getElementById("genre-filter").value;
+      const sortBy = document.getElementById("sort-by").value;
+      const limit = document.getElementById("limit-select").value;
+
+      const params = new URLSearchParams({
+        page,
+        limit,
+        sortBy,
+        sortOrder: "ASC"
+      });
+      if (search) params.append("search", search);
+      if (genre) params.append("genre", genre);
+
+      try {
+        const res = await fetch(`/api/books?${params.toString()}`);
+        const data = await res.json();
+        updateConsole(res.status, data);
+
+        if (res.status === 200 && data.pagination) {
+          totalPagesState = data.pagination.totalPages;
+          document.getElementById("page-indicator").textContent = `Page ${data.pagination.currentPage} of ${data.pagination.totalPages} (${data.pagination.totalItems} Total Books)`;
+          document.getElementById("prev-page-btn").disabled = !data.pagination.hasPrevPage;
+          document.getElementById("next-page-btn").disabled = !data.pagination.hasNextPage;
+        }
+      } catch (err) {
+        updateConsole(500, { error: err.message });
+      }
+    }
+
+    function prevPage() {
+      if (currentPageState > 1) {
+        loadPaginatedBooks(currentPageState - 1);
+      }
+    }
+
+    function nextPage() {
+      if (currentPageState < totalPagesState) {
+        loadPaginatedBooks(currentPageState + 1);
+      }
+    }
+
+    async function fetchBookReviews() {
+      const bookId = document.getElementById("review-book-id").value;
+      if (!bookId) return alert("Please enter a valid Book ID!");
+
+      try {
+        const res = await fetch(`/api/books/${bookId}/reviews`);
+        const data = await res.json();
+        updateConsole(res.status, data);
+      } catch (err) {
+        updateConsole(500, { error: err.message });
+      }
+    }
+
+    async function handlePostReview(e) {
+      e.preventDefault();
+      if (!currentToken) {
+        alert("⚠️ Please login first to get a valid JWT Token!");
+        switchTab('login');
+        return;
+      }
+
+      const bookId = document.getElementById("review-book-id").value;
+      const rating = document.getElementById("review-rating").value;
+      const comment = document.getElementById("review-comment").value;
+
+      try {
+        const res = await fetch(`/api/books/${bookId}/reviews`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${currentToken}`
+          },
+          body: JSON.stringify({ rating, comment })
+        });
+        const data = await res.json();
+        updateConsole(res.status, data);
+
+        if (res.status === 201) {
+          alert("⭐ Review submitted successfully!");
+          document.getElementById("review-comment").value = "";
+          fetchBookReviews();
+        }
       } catch (err) {
         updateConsole(500, { error: err.message });
       }

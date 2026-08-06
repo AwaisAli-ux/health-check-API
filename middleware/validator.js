@@ -1,4 +1,4 @@
-const { body, param, validationResult } = require("express-validator");
+const { body, param, query, validationResult } = require("express-validator");
 
 /**
  * Middleware to check validation results
@@ -102,10 +102,48 @@ const validateBook = [
   validate
 ];
 
-// 5. Route Parameter ID Validation Schema
+// 5. Review Creation Validation Schema
+const validateReview = [
+  param("id")
+    .isInt({ min: 1 }).withMessage("Book ID must be a positive integer"),
+  
+  body("rating")
+    .notEmpty().withMessage("Rating is required")
+    .isInt({ min: 1, max: 5 }).withMessage("Rating must be an integer between 1 and 5"),
+  
+  body("comment")
+    .trim()
+    .notEmpty().withMessage("Comment is required")
+    .isLength({ min: 3, max: 1000 }).withMessage("Comment must be between 3 and 1000 characters"),
+  
+  validate
+];
+
+// 6. Route Parameter ID Validation Schema
 const validateIdParam = [
   param("id")
     .isInt({ min: 1 }).withMessage("ID parameter must be a positive integer"),
+  
+  validate
+];
+
+// 7. Query Parameters Validation Schema (Pagination, Filtering, Sorting)
+const validateBookQuery = [
+  query("page")
+    .optional()
+    .isInt({ min: 1 }).withMessage("Page must be a positive integer"),
+  
+  query("limit")
+    .optional()
+    .isInt({ min: 1, max: 100 }).withMessage("Limit must be an integer between 1 and 100"),
+  
+  query("sortBy")
+    .optional()
+    .isIn(["id", "title", "publishedYear", "createdAt"]).withMessage("sortBy must be one of: id, title, publishedYear, createdAt"),
+  
+  query("sortOrder")
+    .optional()
+    .isIn(["ASC", "DESC", "asc", "desc"]).withMessage("sortOrder must be ASC or DESC"),
   
   validate
 ];
@@ -115,5 +153,7 @@ module.exports = {
   validateLogin,
   validateAuthor,
   validateBook,
-  validateIdParam
+  validateReview,
+  validateIdParam,
+  validateBookQuery
 };
