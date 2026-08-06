@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Health Check API - Authentication Portal</title>
+  <!-- Google Fonts & Font Awesome Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --card-bg: rgba(30, 41, 59, 0.7);
+      --card-border: rgba(255, 255, 255, 0.1);
+      --accent-purple: #8b5cf6;
+      --accent-blue: #3b82f6;
+      --accent-cyan: #06b6d4;
+      --accent-pink: #ec4899;
+      --accent-green: #10b981;
+      --accent-red: #ef4444;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: 'Outfit', sans-serif;
+    }
+
+    body {
+      background: radial-gradient(circle at top left, #1e1b4b, #0f172a 60%, #020617);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    .container {
+      width: 100%;
+      max-width: 900px;
+    }
+
+    /* Header */
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: rgba(139, 92, 246, 0.15);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      color: #c4b5fd;
+      padding: 0.4rem 1rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-bottom: 1rem;
+    }
+
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      background-color: var(--accent-green);
+      border-radius: 50%;
+      box-shadow: 0 0 8px var(--accent-green);
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #ffffff 30%, #a78bfa 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.5rem;
+    }
+
+    p.subtitle {
+      color: var(--text-muted);
+      font-size: 1rem;
+    }
+
+    /* Tabs */
+    .tabs {
+      display: flex;
+      gap: 0.5rem;
+      background: rgba(15, 23, 42, 0.6);
+      padding: 0.4rem;
+      border-radius: 1rem;
+      border: 1px solid var(--card-border);
+      margin-bottom: 2rem;
+      backdrop-filter: blur(10px);
+    }
+
+    .tab-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      padding: 0.8rem 1.2rem;
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-radius: 0.75rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+
+    .tab-btn.active {
+      background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+      color: #ffffff;
+      box-shadow: 0 4px 15px rgba(139, 92, 246, 0.35);
+    }
+
+    .tab-btn:hover:not(.active) {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    /* Cards */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 1.5rem;
+      padding: 2rem;
+      backdrop-filter: blur(16px);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+      display: none;
+      animation: fadeIn 0.4s ease-out forwards;
+    }
+
+    .card.active {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .card-title {
+      font-size: 1.4rem;
+      font-weight: 600;
+      margin-bottom: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    /* Form Styles */
+    .form-group {
+      margin-bottom: 1.25rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 0.85rem 1.1rem;
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 0.75rem;
+      color: var(--text-main);
+      font-size: 0.95rem;
+      outline: none;
+      transition: all 0.25s ease;
+    }
+
+    input:focus {
+      border-color: var(--accent-purple);
+      box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.2);
+    }
+
+    .btn {
+      width: 100%;
+      padding: 0.9rem;
+      border: none;
+      border-radius: 0.75rem;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      transition: all 0.3s ease;
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent-purple), var(--accent-blue));
+      color: white;
+      box-shadow: 0 4px 15px rgba(139, 92, 246, 0.3);
+    }
+
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(139, 92, 246, 0.45);
+    }
+
+    .btn-danger {
+      background: linear-gradient(135deg, var(--accent-red), #991b1b);
+      color: white;
+      box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-danger:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 25px rgba(239, 68, 68, 0.45);
+    }
+
+    .btn-outline {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: var(--text-main);
+    }
+
+    .btn-outline:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Token Banner */
+    .token-card {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px dashed var(--accent-purple);
+      border-radius: 1rem;
+      padding: 1.25rem;
+      margin-top: 1.5rem;
+      display: none;
+    }
+
+    .token-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+
+    .token-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--accent-cyan);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .token-box {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      color: #a78bfa;
+      background: #020617;
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      word-break: break-all;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    /* Response Console */
+    .console-card {
+      margin-top: 2rem;
+      background: #020617;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 1rem;
+      overflow: hidden;
+    }
+
+    .console-header {
+      background: rgba(15, 23, 42, 0.8);
+      padding: 0.75rem 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .console-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .status-pill {
+      font-size: 0.75rem;
+      font-weight: 600;
+      padding: 0.2rem 0.6rem;
+      border-radius: 9999px;
+    }
+
+    .status-200, .status-201 { background: rgba(16, 185, 129, 0.2); color: var(--accent-green); }
+    .status-400, .status-401 { background: rgba(239, 68, 68, 0.2); color: var(--accent-red); }
+
+    pre.console-output {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      padding: 1.25rem;
+      color: #e2e8f0;
+      overflow-x: auto;
+      max-height: 250px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+
+    @media (max-width: 640px) {
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <!-- Header -->
+    <header>
+      <div class="badge">
+        <span class="badge-dot"></span>
+        <span id="api-status-text">Checking API Status...</span>
+      </div>
+      <h1>PostgreSQL REST API Auth</h1>
+      <p class="subtitle">Interactive Authentication & Protected Route Verification Portal</p>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('signup')">
+        <i class="fa-solid fa-user-plus"></i> Signup
+      </button>
+      <button class="tab-btn" onclick="switchTab('login')">
+        <i class="fa-solid fa-right-to-bracket"></i> Login
+      </button>
+      <button class="tab-btn" onclick="switchTab('dashboard')">
+        <i class="fa-solid fa-shield-halved"></i> Protected Dashboard
+      </button>
+      <button class="tab-btn" onclick="switchTab('validation')">
+        <i class="fa-solid fa-bug"></i> Intentionally Break API
+      </button>
+    </div>
+
+    <!-- 1. SIGNUP CARD -->
+    <div id="signup-card" class="card active">
+      <div class="card-title">
+        <i class="fa-solid fa-user-plus" style="color: var(--accent-purple);"></i>
+        Create New Account
+      </div>
+      <form id="signup-form" onsubmit="handleSignup(event)">
+        <div class="form-group">
+          <label><i class="fa-solid fa-user"></i> Username</label>
+          <input type="text" id="signup-username" placeholder="e.g. johndoe" required>
+        </div>
+        <div class="form-group">
+          <label><i class="fa-solid fa-envelope"></i> Email Address</label>
+          <input type="email" id="signup-email" placeholder="e.g. john@example.com" required>
+        </div>
+        <div class="form-group">
+          <label><i class="fa-solid fa-lock"></i> Password</label>
+          <input type="password" id="signup-password" placeholder="••••••••" required minlength="6">
+        </div>
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-user-check"></i> Register User
+        </button>
+      </form>
+    </div>
+
+    <!-- 2. LOGIN CARD -->
+    <div id="login-card" class="card">
+      <div class="card-title">
+        <i class="fa-solid fa-key" style="color: var(--accent-cyan);"></i>
+        User Login & JWT Token Retrieval
+      </div>
+      <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label><i class="fa-solid fa-envelope"></i> Email Address</label>
+          <input type="email" id="login-email" placeholder="e.g. john@example.com" required>
+        </div>
+        <div class="form-group">
+          <label><i class="fa-solid fa-lock"></i> Password</label>
+          <input type="password" id="login-password" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-right-to-bracket"></i> Login & Issue Token
+        </button>
+      </form>
+
+      <!-- Token Banner -->
+      <div id="token-banner" class="token-card">
+        <div class="token-header">
+          <span class="token-title"><i class="fa-solid fa-lock-open"></i> Active JWT Token</span>
+          <button class="btn btn-outline" style="padding: 0.3rem 0.8rem; font-size: 0.75rem; width: auto;" onclick="copyToken()">
+            <i class="fa-solid fa-copy"></i> Copy Token
+          </button>
+        </div>
+        <div id="token-box" class="token-box">No token stored</div>
+      </div>
+    </div>
+
+    <!-- 3. PROTECTED DASHBOARD CARD -->
+    <div id="dashboard-card" class="card">
+      <div class="card-title">
+        <i class="fa-solid fa-shield-cat" style="color: var(--accent-pink);"></i>
+        Protected Endpoints Testing
+      </div>
+      
+      <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.9rem;">
+        Test accessing protected backend routes with your active JWT token or test getting blocked without one.
+      </p>
+
+      <div class="grid-2" style="margin-bottom: 1.5rem;">
+        <button class="btn btn-primary" onclick="fetchMyProfile()">
+          <i class="fa-solid fa-user-shield"></i> 1. Get My Profile (WITH Token)
+        </button>
+        <button class="btn btn-danger" onclick="fetchMyProfileNoToken()">
+          <i class="fa-solid fa-ban"></i> 2. Test Blocked (WITHOUT Token)
+        </button>
+      </div>
+
+      <hr style="border-color: rgba(255,255,255,0.08); margin: 1.5rem 0;">
+
+      <div class="card-title" style="font-size: 1.1rem;">
+        <i class="fa-solid fa-book-medical" style="color: var(--accent-green);"></i>
+        Add Protected Book (`POST /api/books`)
+      </div>
+
+      <form id="book-form" onsubmit="handleCreateBook(event)">
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Book Title</label>
+            <input type="text" id="book-title" placeholder="e.g. Clean Code" required>
+          </div>
+          <div class="form-group">
+            <label>Genre</label>
+            <input type="text" id="book-genre" placeholder="e.g. Software Engineering" required>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Published Year</label>
+            <input type="number" id="book-year" value="2026" required>
+          </div>
+          <div class="form-group">
+            <label>Author ID</label>
+            <input type="number" id="book-author-id" value="1" required>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, var(--accent-green), #047857);">
+          <i class="fa-solid fa-plus-circle"></i> Create Book (Requires JWT Token)
+        </button>
+      </form>
+    </div>
+
+    <!-- 4. INTENTIONALLY BREAK API CARD -->
+    <div id="validation-card" class="card">
+      <div class="card-title">
+        <i class="fa-solid fa-triangle-exclamation" style="color: var(--accent-red);"></i>
+        Intentionally Break API (Validation Demo)
+      </div>
+
+      <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.9rem;">
+        Click any button below to send bad input to the API and demonstrate live graceful error responses for your video recording!
+      </p>
+
+      <div class="grid-2" style="margin-bottom: 1rem;">
+        <button class="btn btn-danger" onclick="testMalformedJson()">
+          <i class="fa-solid fa-code"></i> 1. Malformed JSON Body
+        </button>
+        <button class="btn btn-danger" onclick="testInvalidEmail()">
+          <i class="fa-solid fa-envelope-circle-check"></i> 2. Invalid Email Format
+        </button>
+      </div>
+
+      <div class="grid-2" style="margin-bottom: 1rem;">
+        <button class="btn btn-danger" onclick="testShortPassword()">
+          <i class="fa-solid fa-key"></i> 3. Short Password (< 6 chars)
+        </button>
+        <button class="btn btn-danger" onclick="testInvalidBookId()">
+          <i class="fa-solid fa-hashtag"></i> 4. Invalid Book ID (/api/books/abc)
+        </button>
+      </div>
+
+      <div class="grid-2">
+        <button class="btn btn-danger" onclick="testBadYear()">
+          <i class="fa-solid fa-calendar-xmark"></i> 5. Bad Year (year: 99)
+        </button>
+        <button class="btn btn-danger" onclick="testEmptyBody()">
+          <i class="fa-solid fa-file-circle-xmark"></i> 6. Empty Body `{}`
+        </button>
+      </div>
+    </div>
+
+    <!-- RESPONSE CONSOLE -->
+    <div class="console-card">
+      <div class="console-header">
+        <div class="console-title">
+          <i class="fa-solid fa-terminal"></i> Live API Response Console
+        </div>
+        <span id="response-status" class="status-pill status-200" style="display: none;">Status: 200 OK</span>
+      </div>
+      <pre id="console-output" class="console-output">// Click any button above to inspect live backend API responses...</pre>
+    </div>
+
+  </div>
+
+  <script>
+    let currentToken = localStorage.getItem("jwt_token") || "";
+
+    window.onload = () => {
+      checkHealth();
+      if (currentToken) {
+        showToken(currentToken);
+      }
+    };
+
+    function checkHealth() {
+      fetch("/health")
+        .then(res => res.json())
+        .then(data => {
+          document.getElementById("api-status-text").textContent = `API Live | DB ${data.data.database}`;
+        })
+        .catch(err => {
+          document.getElementById("api-status-text").textContent = "API Offline";
+        });
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll(".tab-btn").forEach(btn => btn.classList.remove("active"));
+      document.querySelectorAll(".card").forEach(card => card.classList.remove("active"));
+
+      if (tabName === 'signup') {
+        document.querySelectorAll(".tab-btn")[0].classList.add("active");
+        document.getElementById("signup-card").classList.add("active");
+      } else if (tabName === 'login') {
+        document.querySelectorAll(".tab-btn")[1].classList.add("active");
+        document.getElementById("login-card").classList.add("active");
+      } else if (tabName === 'dashboard') {
+        document.querySelectorAll(".tab-btn")[2].classList.add("active");
+        document.getElementById("dashboard-card").classList.add("active");
+      } else if (tabName === 'validation') {
+        document.querySelectorAll(".tab-btn")[3].classList.add("active");
+        document.getElementById("validation-card").classList.add("active");
+      }
+    }
+
+    function updateConsole(status, data) {
+      const statusPill = document.getElementById("response-status");
+      statusPill.style.display = "inline-block";
+      statusPill.textContent = `Status: ${status}`;
+      statusPill.className = `status-pill status-${status}`;
+      document.getElementById("console-output").textContent = JSON.stringify(data, null, 2);
+    }
+
+    function showToken(token) {
+      currentToken = token;
+      localStorage.setItem("jwt_token", token);
+      document.getElementById("token-banner").style.display = "block";
+      document.getElementById("token-box").textContent = token;
+    }
+
+    function copyToken() {
+      if (!currentToken) return;
+      navigator.clipboard.writeText(currentToken);
+      alert("🔑 JWT Token copied to clipboard!");
+    }
+
+    // 1. SIGNUP HANDLER
+    async function handleSignup(e) {
+      e.preventDefault();
+      const username = document.getElementById("signup-username").value;
+      const email = document.getElementById("signup-email").value;
+      const password = document.getElementById("signup-password").value;
+
+      try {
+        const res = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username, email, password })
+        });
+        const data = await res.json();
+        updateConsole(res.status, data);
+
+        if (res.status === 201) {
+          alert("🎉 Registration successful! Switch to Login tab to log in.");
+          document.getElementById("login-email").value = email;
+          switchTab('login');
+        }
+      } catch (err) {
+        updateConsole(500, { error: err.message });
+      }
+    }
+
+    // 2. LOGIN HANDLER
+    async function handleLogin(e) {
+      e.preventDefault();
+      const email = document.getElementById("login-email").value;
+      const password = document.getElementById("login-password").value;
+
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        updateConsole(res.status, data);
+
+        if (res.status === 200 && data.token) {
+          showToken(data.token);
+          alert("🔓 Login successful! JWT Token generated and saved.");
+        }
+      } catch (err) {
+        updateConsole(500, { error: err.message });
+      }
+    }
+
+    // 3. FETCH PROFILE WITH TOKEN
+    async function fetchMyProfile() {
+      if (!currentToken) {
+        alert("⚠️ Please login first to get a valid JWT Token!");
+        switchTab('login');
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/auth/me", {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${currentToken}`
+          }
+        });
+        const data = await res.json();
+        updateConsole(res.status, data);
+      } catch (err) {
+        updateConsole(500, { error: err.message });
+      }
+    }
+
+    // 4. FETCH PROFILE WITHOUT TOKEN (TEST BLOCKED)
+    async function fetchMyProfileNoToken() {
+      try {
+        const res = await fetch("/api/auth/me", {
+          method: "GET"
+          // No Authorization header passed!
+        });
+        const data = await res.json();
+        updateConsole(res.status, data);
+      } catch (err) {
+        updateConsole(500, { error: err.message });
+      }
+    }
+
+    // 5. CREATE BOOK WITH TOKEN
+    async function handleCreateBook(e) {
+      e.preventDefault();
+      if (!currentToken) {
+        alert("⚠️ Please login first to get a valid JWT Token!");
+        switchTab('login');
+        return;
+      }
+
+      const title = document.getElementById("book-title").value;
+      const genre = document.getElementById("book-genre").value;
+      const publishedYear = Number(document.getElementById("book-year").value);
+      const authorId = Number(document.getElementById("book-author-id").value);
+
+      try {
+        const res = await fetch("/api/books", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${currentToken}`
+          },
+          body: JSON.stringify({ title, genre, publishedYear, authorId })
+        });
+        const data = await res.json();
+        updateConsole(res.status, data);
+      } catch (err) {
+        updateConsole(500, { error: err.message });
+      }
+    }
+
+    // --- VALIDATION TEST HELPER FUNCTIONS ---
+    async function testMalformedJson() {
+      try {
+        const res = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: '{ "username": "bad", "email": ' // Malformed JSON
+        });
+        const data = await res.json();
+        updateConsole(res.status, data);
+      } catch (err) {
+        updateConsole(500, { error: err.message });
+      }
+    }
+
+    async function testInvalidEmail() {
+      try {
+        const res = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: "testuser", email: "not-a-valid-email", password: "Password123" })
+        });
+        const data = await res.json();
+        updateConsole(res.status, data);
+      } catch (err) {
+        updateConsole(500, { error: err.message });
+      }
+    }
+
+    async function testShortPassword() {
+      try {
+        const res = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ username: "testuser", email: "valid@example.com", password: "123" })
+        });
+        const data = await res.json();
+        updateConsole(res.status, data);
+      } catch (err) {
+        updateConsole(500, { error: err.message });
+      }
+    }
+
+    async function testInvalidBookId() {
+      try {
+        const res = await fetch("/api/books/invalid_abc");
+        const data = await res.json();
+        updateConsole(res.status, data);
+      } catch (err) {
+        updateConsole(500, { error: err.message });
+      }
+    }
+
+    async function testBadYear() {
+      if (!currentToken) {
+        alert("⚠️ Please login first to get a valid JWT Token!");
+        switchTab('login');
+        return;
+      }
+      try {
+        const res = await fetch("/api/books", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${currentToken}`
+          },
+          body: JSON.stringify({ title: "Bad Year Book", genre: "Tech", publishedYear: 99, authorId: 1 })
+        });
+        const data = await res.json();
+        updateConsole(res.status, data);
+      } catch (err) {
+        updateConsole(500, { error: err.message });
+      }
+    }
+
+    async function testEmptyBody() {
+      try {
+        const res = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: "{}"
+        });
+        const data = await res.json();
+        updateConsole(res.status, data);
+      } catch (err) {
+        updateConsole(500, { error: err.message });
+      }
+    }
+  </script>
+</body>
+</html>

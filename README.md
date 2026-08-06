@@ -1,16 +1,17 @@
-# PostgreSQL Relational Book Store REST API with JWT Auth
+# PostgreSQL Relational Book Store REST API with JWT Auth & Input Validation
 
-A production-grade RESTful API built with **Node.js, Express, PostgreSQL, bcryptjs, and JSON Web Tokens (JWT)** as part of the **Neurofive Solutions** internship program.
+A production-grade RESTful API built with **Node.js, Express, PostgreSQL, bcryptjs, express-validator, and JSON Web Tokens (JWT)** as part of the **Neurofive Solutions** internship program.
 
 ---
 
 ## 🎯 Purpose & Features
 
-- **User Authentication**: Secure Signup and Login endpoints with password hashing using `bcryptjs` (salt rounds = 10).
+- **Bulletproof Input Validation**: Enforced schemas using `express-validator` across all input endpoints (email validation, string length limits, numeric ranges, sanitization).
+- **Centralized Global Error Handler**: Express error middleware intercepting malformed JSON payloads (`SyntaxError`), PostgreSQL constraint violations (duplicate keys, foreign key mismatches), and uncaught runtime exceptions without leaking stack traces.
+- **Standardized API Contract**: Consistent JSON response shape `{ success, message, data/error }` across all success and error scenarios.
+- **User Authentication & Password Hashing**: Secure Signup and Login endpoints with password hashing using `bcryptjs` (salt rounds = 10).
 - **JWT Authorization**: Issue signed JSON Web Tokens upon login with configurable expiration (`1h`).
 - **Protected Routes**: Middleware (`authenticateToken`) guarding data modification (`POST`, `PUT`, `DELETE`) and user profile retrieval.
-- **Relational PostgreSQL Database**: Managed tables (`authors`, `books`, `users`) hosted on cloud PostgreSQL with foreign key constraints.
-- **Robust Error Handling**: Standardized 401 response formats for missing tokens, expired tokens, invalid credentials, and duplicate users.
 
 ---
 
@@ -46,6 +47,134 @@ A production-grade RESTful API built with **Node.js, Express, PostgreSQL, bcrypt
 
 ---
 
+## 🛡️ Input Validation & Standardized Error Handling (5 Bad Request Examples)
+
+The API enforces strict validation rules and returns consistent error structures.
+
+### Standardized Error Contract:
+```json
+{
+  "success": false,
+  "message": "Human readable error description",
+  "error": {
+    "code": "ERROR_CODE_IDENTIFIER",
+    "details": "Detailed validation failures or DB details"
+  }
+}
+```
+
+---
+
+### 1️⃣ Bad Request 1: Malformed JSON Syntax (`POST /api/auth/signup`)
+**Request:** Malformed JSON payload (`{ "username": "test", "email": `)
+**Response:** `400 Bad Request`
+```json
+{
+  "success": false,
+  "message": "Malformed JSON payload in request body",
+  "error": {
+    "code": "MALFORMED_JSON",
+    "details": "Please check your JSON formatting and syntax."
+  }
+}
+```
+
+### 2️⃣ Bad Request 2: Invalid Email & Short Password (`POST /api/auth/signup`)
+**Request Payload:**
+```json
+{
+  "username": "user123",
+  "email": "invalid-email-format",
+  "password": "123"
+}
+```
+**Response:** `400 Bad Request`
+```json
+{
+  "success": false,
+  "message": "Input validation failed. Please correct the invalid fields.",
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": [
+      {
+        "field": "email",
+        "message": "Must be a valid email address",
+        "value": "invalid-email-format"
+      },
+      {
+        "field": "password",
+        "message": "Password must be at least 6 characters long",
+        "value": "123"
+      }
+    ]
+  }
+}
+```
+
+### 3️⃣ Bad Request 3: Non-Numeric ID Parameter (`GET /api/books/invalid_abc`)
+**Request:** `GET /api/books/invalid_abc`
+**Response:** `400 Bad Request`
+```json
+{
+  "success": false,
+  "message": "Input validation failed. Please correct the invalid fields.",
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": [
+      {
+        "field": "id",
+        "message": "ID parameter must be a positive integer",
+        "value": "invalid_abc"
+      }
+    ]
+  }
+}
+```
+
+### 4️⃣ Bad Request 4: Duplicate User Registration (`POST /api/auth/signup`)
+**Request Payload:** Register email or username that already exists in DB
+**Response:** `409 Conflict`
+```json
+{
+  "success": false,
+  "message": "User with this email or username already exists",
+  "error": {
+    "code": "DUPLICATE_ENTRY",
+    "details": "Email or username is already registered."
+  }
+}
+```
+
+### 5️⃣ Bad Request 5: Out-of-Range Published Year (`POST /api/books`)
+**Request Payload:**
+```json
+{
+  "title": "Clean Code",
+  "genre": "Tech",
+  "publishedYear": 99,
+  "authorId": 1
+}
+```
+**Response:** `400 Bad Request`
+```json
+{
+  "success": false,
+  "message": "Input validation failed. Please correct the invalid fields.",
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "details": [
+      {
+        "field": "publishedYear",
+        "message": "Published year must be a valid integer between 1000 and 2030",
+        "value": 99
+      }
+    ]
+  }
+}
+```
+
+---
+
 ## 🔐 Environment Variables Configuration (`.env`)
 
 Create a `.env` file in the project root:
@@ -57,50 +186,6 @@ JWT_SECRET=super_secret_jwt_key_health_check_api_2026
 JWT_EXPIRES_IN=1h
 ```
 
-> 🔒 **Security Note**: `JWT_SECRET` and `DATABASE_URL` are kept strictly in `.env` and excluded from Git tracking.
-
----
-
-## 🔑 Authentication Flow & How To Use Tokens
-
-### 1️⃣ Signup (`POST /api/auth/signup`)
-Send JSON payload to register:
-```json
-{
-  "username": "johndoe",
-  "email": "john@example.com",
-  "password": "Password123!"
-}
-```
-
-### 2️⃣ Login & Retrieve JWT (`POST /api/auth/login`)
-Login to obtain a JWT token:
-```json
-{
-  "email": "john@example.com",
-  "password": "Password123!"
-}
-```
-**Successful Response:**
-```json
-{
-  "success": true,
-  "message": "Login successful",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user": {
-    "id": 1,
-    "username": "johndoe",
-    "email": "john@example.com"
-  }
-}
-```
-
-### 3️⃣ Accessing Protected Routes
-To access protected endpoints, pass the received token in the `Authorization` request header:
-```http
-Authorization: Bearer <your_jwt_token_here>
-```
-
 ---
 
 ## 📌 API Endpoints Overview
@@ -108,16 +193,16 @@ Authorization: Bearer <your_jwt_token_here>
 | Method | Endpoint | Access | Description | Status Codes |
 |--------|----------|--------|-------------|--------------|
 | `GET` | `/health` | Public | Health check + SQL DB connectivity | `200 OK`, `500 Error` |
-| `POST` | `/api/auth/signup` | Public | Register new user with hashed password | `201 Created`, `400 Bad Request` |
-| `POST` | `/api/auth/login` | Public | Authenticate user & issue JWT token | `200 OK`, `401 Unauthorized` |
+| `POST` | `/api/auth/signup` | Public | Register new user (Validated & Hashed) | `201 Created`, `400 Bad Request`, `409 Conflict` |
+| `POST` | `/api/auth/login` | Public | Authenticate user & issue JWT token | `200 OK`, `400 Bad Request`, `401 Unauthorized` |
 | `GET` | `/api/auth/me` | **Protected** | Fetch authenticated user profile | `200 OK`, `401 Unauthorized` |
 | `GET` | `/api/authors` | Public | List all authors | `200 OK`, `500 Error` |
-| `POST` | `/api/authors` | **Protected** | Create a new author | `201 Created`, `401 Unauthorized` |
+| `POST` | `/api/authors` | **Protected** | Create a new author (Validated) | `201 Created`, `400 Bad Request`, `401 Unauthorized` |
 | `GET` | `/api/books` | Public | Get all books with author info via SQL `JOIN` | `200 OK`, `500 Error` |
-| `GET` | `/api/books/:id` | Public | Get single book by ID with author info | `200 OK`, `404 Not Found` |
-| `POST` | `/api/books` | **Protected** | Create a book linked to `author_id` | `201 Created`, `401 Unauthorized` |
-| `PUT` | `/api/books/:id` | **Protected** | Update an existing book | `200 OK`, `401 Unauthorized` |
-| `DELETE` | `/api/books/:id` | **Protected** | Delete a book by ID | `200 OK`, `401 Unauthorized` |
+| `GET` | `/api/books/:id` | Public | Get single book by ID | `200 OK`, `400 Bad Request`, `404 Not Found` |
+| `POST` | `/api/books` | **Protected** | Create a book linked to `author_id` (Validated) | `201 Created`, `400 Bad Request`, `401 Unauthorized` |
+| `PUT` | `/api/books/:id` | **Protected** | Update an existing book (Validated) | `200 OK`, `400 Bad Request`, `401 Unauthorized` |
+| `DELETE` | `/api/books/:id` | **Protected** | Delete a book by ID | `200 OK`, `400 Bad Request`, `401 Unauthorized` |
 
 ---
 
@@ -141,10 +226,10 @@ Authorization: Bearer <your_jwt_token_here>
    ```bash
    npm start
    ```
-   Tables (`authors`, `books`, `users`) will automatically be verified and created on startup.
+   Open `http://localhost:3000` to interact with the visual frontend portal.
 
 ---
 
 ## 🧪 Postman Testing
 
-Import [`postman_collection.json`](./postman_collection.json) directly into Postman to test Signup, Login, Profile retrieval, and protected book/author requests with Bearer tokens.
+Import [`postman_collection.json`](./postman_collection.json) directly into Postman to test validation errors, JWT authentication, and CRUD endpoints.

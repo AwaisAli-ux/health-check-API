@@ -1,15 +1,26 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const path = require("path");
 require("dotenv").config();
+
 const { pool, initDb } = require("./db");
 const authenticateToken = require("./middleware/auth");
+const errorHandler = require("./middleware/errorHandler");
+const {
+  validateSignup,
+  validateLogin,
+  validateAuthor,
+  validateBook,
+  validateIdParam
+} = require("./middleware/validator");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware to parse JSON body
+// Middleware to parse JSON body and serve static files
 app.use(express.json());
+app.use(express.static(path.join(__dirname, "public")));
 
 // Custom Request Logging Middleware (Method + URL + Status Code + Response Time)
 app.use((req, res, next) => {
@@ -25,23 +36,22 @@ app.use((req, res, next) => {
 initDb();
 
 // 1. Health Check Endpoint (Includes DB Connection Test)
-app.get("/health", async (req, res) => {
+app.get("/health", async (req, res, next) => {
   try {
     const dbResult = await pool.query("SELECT NOW()");
     res.status(200).json({
-      status: "ok",
-      database: "connected",
-      dbTime: dbResult.rows[0].now,
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime()
+      success: true,
+      message: "API and PostgreSQL Database are healthy",
+      data: {
+        status: "ok",
+        database: "connected",
+        dbTime: dbResult.rows[0].now,
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+      }
     });
   } catch (err) {
-    res.status(500).json({
-      status: "error",
-      database: "disconnected",
-      error: err.message,
-      timestamp: new Date().toISOString()
-    });
+    next(err);
   }
 });
 
@@ -50,15 +60,8 @@ app.get("/health", async (req, res) => {
 // ==========================================
 
 // POST /api/auth/signup - Register new user
-app.post("/api/auth/signup", async (req, res) => {
+app.post("/api/auth/signup", validateSignup, async (req, res, next) => {
   const { username, email, password } = req.body;
-
-  if (!username || !email || !password) {
-    return res.status(400).json({
-      success: false,
-      message: "Please provide username, email, and password"
-    });
-  }
 
   try {
     // Check if email or username already exists
@@ -68,9 +71,13 @@ app.post("/api/auth/signup", async (req, res) => {
     );
 
     if (existingUser.rows.length > 0) {
-      return res.status(400).json({
+      return res.status(409).json({
         success: false,
-        message: "User with this email or username already exists"
+        message: "User with this email or username already exists",
+        error: {
+          code: "DUPLICATE_ENTRY",
+          details: "Email or username is already registered."
+        }
       });
     }
 
@@ -90,20 +97,13 @@ app.post("/api/auth/signup", async (req, res) => {
       data: result.rows[0]
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Database Error", error: err.message });
+    next(err);
   }
 });
 
 // POST /api/auth/login - User login & JWT issuance
-app.post("/api/auth/login", async (req, res) => {
+app.post("/api/auth/login", validateLogin, async (req, res, next) => {
   const { email, password } = req.body;
-
-  if (!email || !password) {
-    return res.status(400).json({
-      success: false,
-      message: "Please provide email and password"
-    });
-  }
 
   try {
     // Find user by email
@@ -112,7 +112,10 @@ app.post("/api/auth/login", async (req, res) => {
     if (result.rows.length === 0) {
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password"
+        message: "Invalid email or password",
+        error: {
+          code: "INVALID_CREDENTIALS"
+        }
       });
     }
 
@@ -124,7 +127,10 @@ app.post("/api/auth/login", async (req, res) => {
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
-        message: "Invalid email or password"
+        message: "Invalid email or password",
+        error: {
+          code: "INVALID_CREDENTIALS"
+        }
       });
     }
 
@@ -139,20 +145,22 @@ app.post("/api/auth/login", async (req, res) => {
     res.status(200).json({
       success: true,
       message: "Login successful",
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email
+      data: {
+        token,
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email
+        }
       }
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Database Error", error: err.message });
+    next(err);
   }
 });
 
 // GET /api/auth/me - Protected route to get logged-in user profile
-app.get("/api/auth/me", authenticateToken, async (req, res) => {
+app.get("/api/auth/me", authenticateToken, async (req, res, next) => {
   try {
     const result = await pool.query(
       "SELECT id, username, email, created_at AS \"createdAt\" FROM users WHERE id = $1",
@@ -160,15 +168,20 @@ app.get("/api/auth/me", authenticateToken, async (req, res) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: "User not found" });
+      return res.status(404).json({
+        success: false,
+        message: "User profile not found",
+        error: { code: "NOT_FOUND" }
+      });
     }
 
     res.status(200).json({
       success: true,
+      message: "User profile retrieved successfully",
       data: result.rows[0]
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Database Error", error: err.message });
+    next(err);
   }
 });
 
@@ -177,26 +190,23 @@ app.get("/api/auth/me", authenticateToken, async (req, res) => {
 // ==========================================
 
 // GET /api/authors - List all authors (Public)
-app.get("/api/authors", async (req, res) => {
+app.get("/api/authors", async (req, res, next) => {
   try {
     const result = await pool.query("SELECT * FROM authors ORDER BY id ASC");
     res.status(200).json({
       success: true,
+      message: "Authors retrieved successfully",
       count: result.rowCount,
       data: result.rows
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Database Error", error: err.message });
+    next(err);
   }
 });
 
-// POST /api/authors - Create a new author (Protected)
-app.post("/api/authors", authenticateToken, async (req, res) => {
+// POST /api/authors - Create a new author (Protected + Validated)
+app.post("/api/authors", authenticateToken, validateAuthor, async (req, res, next) => {
   const { name, bio } = req.body;
-
-  if (!name) {
-    return res.status(400).json({ success: false, message: "Please provide author name" });
-  }
 
   try {
     const result = await pool.query(
@@ -209,7 +219,7 @@ app.post("/api/authors", authenticateToken, async (req, res) => {
       data: result.rows[0]
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Database Error", error: err.message });
+    next(err);
   }
 });
 
@@ -218,7 +228,7 @@ app.post("/api/authors", authenticateToken, async (req, res) => {
 // ==========================================
 
 // GET /api/books - List all books (with Author details via SQL JOIN)
-app.get("/api/books", async (req, res) => {
+app.get("/api/books", async (req, res, next) => {
   try {
     const query = `
       SELECT 
@@ -240,20 +250,18 @@ app.get("/api/books", async (req, res) => {
     const result = await pool.query(query);
     res.status(200).json({
       success: true,
+      message: "Books retrieved successfully",
       count: result.rowCount,
       data: result.rows
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Database Error", error: err.message });
+    next(err);
   }
 });
 
 // GET /api/books/:id - Get single book by ID
-app.get("/api/books/:id", async (req, res) => {
+app.get("/api/books/:id", validateIdParam, async (req, res, next) => {
   const bookId = parseInt(req.params.id, 10);
-  if (isNaN(bookId)) {
-    return res.status(400).json({ success: false, message: "Invalid book ID" });
-  }
 
   try {
     const query = `
@@ -276,36 +284,35 @@ app.get("/api/books/:id", async (req, res) => {
     const result = await pool.query(query, [bookId]);
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: `Book with id ${bookId} not found` });
+      return res.status(404).json({
+        success: false,
+        message: `Book with id ${bookId} not found`,
+        error: { code: "NOT_FOUND" }
+      });
     }
 
     res.status(200).json({
       success: true,
+      message: "Book retrieved successfully",
       data: result.rows[0]
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Database Error", error: err.message });
+    next(err);
   }
 });
 
-// POST /api/books - Create a new book (Protected)
-app.post("/api/books", authenticateToken, async (req, res) => {
+// POST /api/books - Create a new book (Protected + Validated)
+app.post("/api/books", authenticateToken, validateBook, async (req, res, next) => {
   const { title, genre, publishedYear, available, authorId } = req.body;
-
-  if (!title || !genre || !publishedYear || !authorId) {
-    return res.status(400).json({
-      success: false,
-      message: "Please provide title, genre, publishedYear, and authorId"
-    });
-  }
 
   try {
     // Check if author exists
     const authorCheck = await pool.query("SELECT id FROM authors WHERE id = $1", [authorId]);
     if (authorCheck.rows.length === 0) {
-      return res.status(400).json({
+      return res.status(404).json({
         success: false,
-        message: `Author with id ${authorId} does not exist. Create the author first!`
+        message: `Author with id ${authorId} does not exist. Create the author first!`,
+        error: { code: "NOT_FOUND" }
       });
     }
 
@@ -328,27 +335,26 @@ app.post("/api/books", authenticateToken, async (req, res) => {
       data: result.rows[0]
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Database Error", error: err.message });
+    next(err);
   }
 });
 
-// PUT /api/books/:id - Update an existing book (Protected)
-app.put("/api/books/:id", authenticateToken, async (req, res) => {
+// PUT /api/books/:id - Update an existing book (Protected + Validated)
+app.put("/api/books/:id", authenticateToken, validateIdParam, validateBook, async (req, res, next) => {
   const bookId = parseInt(req.params.id, 10);
-  if (isNaN(bookId)) {
-    return res.status(400).json({ success: false, message: "Invalid book ID" });
-  }
-
   const { title, genre, publishedYear, available, authorId } = req.body;
 
-  if (!title || !genre || !publishedYear || !authorId) {
-    return res.status(400).json({
-      success: false,
-      message: "Please provide title, genre, publishedYear, and authorId to update"
-    });
-  }
-
   try {
+    // Check if author exists
+    const authorCheck = await pool.query("SELECT id FROM authors WHERE id = $1", [authorId]);
+    if (authorCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: `Author with id ${authorId} does not exist. Create the author first!`,
+        error: { code: "NOT_FOUND" }
+      });
+    }
+
     const query = `
       UPDATE books
       SET title = $1, genre = $2, published_year = $3, available = $4, author_id = $5
@@ -365,7 +371,11 @@ app.put("/api/books/:id", authenticateToken, async (req, res) => {
     ]);
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: `Book with id ${bookId} not found` });
+      return res.status(404).json({
+        success: false,
+        message: `Book with id ${bookId} not found`,
+        error: { code: "NOT_FOUND" }
+      });
     }
 
     res.status(200).json({
@@ -374,22 +384,23 @@ app.put("/api/books/:id", authenticateToken, async (req, res) => {
       data: result.rows[0]
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Database Error", error: err.message });
+    next(err);
   }
 });
 
-// DELETE /api/books/:id - Delete a book (Protected)
-app.delete("/api/books/:id", authenticateToken, async (req, res) => {
+// DELETE /api/books/:id - Delete a book (Protected + Validated)
+app.delete("/api/books/:id", authenticateToken, validateIdParam, async (req, res, next) => {
   const bookId = parseInt(req.params.id, 10);
-  if (isNaN(bookId)) {
-    return res.status(400).json({ success: false, message: "Invalid book ID" });
-  }
 
   try {
     const result = await pool.query("DELETE FROM books WHERE id = $1 RETURNING *", [bookId]);
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: `Book with id ${bookId} not found` });
+      return res.status(404).json({
+        success: false,
+        message: `Book with id ${bookId} not found`,
+        error: { code: "NOT_FOUND" }
+      });
     }
 
     res.status(200).json({
@@ -398,13 +409,16 @@ app.delete("/api/books/:id", authenticateToken, async (req, res) => {
       data: result.rows[0]
     });
   } catch (err) {
-    res.status(500).json({ success: false, message: "Database Error", error: err.message });
+    next(err);
   }
 });
 
-// Root Endpoint
+// Root Endpoint - Serves HTML Frontend Portal
 app.get("/", (req, res) => {
-  res.send("PostgreSQL Book Store REST API is running. Try /health, /api/authors, or /api/books");
+  res.sendFile(path.join(__dirname, "public", "index.html"));
 });
+
+// Centralized Global Error Handler (Registered as last middleware)
+app.use(errorHandler);
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
