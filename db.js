@@ -158,7 +158,11 @@ const initDb = async () => {
       );
     `);
 
-    console.log(" SQL Tables (authors, books, users, reviews) verified / created successfully!");
+    // Column Migrations for File Upload URLs
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(500);`);
+    await client.query(`ALTER TABLE books ADD COLUMN IF NOT EXISTS cover_image_url VARCHAR(500);`);
+
+    console.log(" SQL Tables (authors, books, users, reviews) & File Upload Columns verified / created successfully!");
     
     // Seed Sample Data (35+ books)
     await seedDb(client);

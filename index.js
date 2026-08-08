@@ -7,6 +7,7 @@ require("dotenv").config();
 const { pool, initDb } = require("./db");
 const authenticateToken = require("./middleware/auth");
 const errorHandler = require("./middleware/errorHandler");
+const { handleUpload } = require("./middleware/upload");
 const {
   validateSignup,
   validateLogin,
@@ -20,9 +21,10 @@ const {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Middleware to parse JSON body and serve static files
+// Middleware to parse JSON body and serve static uploads
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Custom Request Logging Middleware (Method + URL + Status Code + Response Time)
 app.use((req, res, next) => {
@@ -89,7 +91,7 @@ app.post("/api/auth/signup", validateSignup, async (req, res, next) => {
 
     // Insert user into PostgreSQL
     const result = await pool.query(
-      "INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email, created_at AS \"createdAt\"",
+      "INSERT INTO users (username, email, password_hash) VALUES ($1, $2, $3) RETURNING id, username, email, avatar_url AS \"avatarUrl\", created_at AS \"createdAt\"",
       [username, email.toLowerCase(), passwordHash]
     );
 
@@ -148,7 +150,8 @@ app.post("/api/auth/login", validateLogin, async (req, res, next) => {
         user: {
           id: user.id,
           username: user.username,
-          email: user.email
+          email: user.email,
+          avatarUrl: user.avatar_url || null
         }
       }
     });
@@ -161,7 +164,7 @@ app.post("/api/auth/login", validateLogin, async (req, res, next) => {
 app.get("/api/auth/me", authenticateToken, async (req, res, next) => {
   try {
     const result = await pool.query(
-      "SELECT id, username, email, created_at AS \"createdAt\" FROM users WHERE id = $1",
+      "SELECT id, username, email, avatar_url AS \"avatarUrl\", created_at AS \"createdAt\" FROM users WHERE id = $1",
       [req.user.id]
     );
 
@@ -177,6 +180,74 @@ app.get("/api/auth/me", authenticateToken, async (req, res, next) => {
       success: true,
       message: "User profile retrieved successfully",
       data: result.rows[0]
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ==========================================
+// 📌 FILE UPLOAD ENDPOINTS (Avatar & Book Covers)
+// ==========================================
+
+// POST /api/users/avatar - Protected: Upload profile picture avatar
+app.post("/api/users/avatar", authenticateToken, handleUpload("avatar"), async (req, res, next) => {
+  try {
+    const avatarUrl = `${req.protocol}://${req.get("host")}/uploads/avatars/${req.file.filename}`;
+    
+    await pool.query(
+      "UPDATE users SET avatar_url = $1 WHERE id = $2",
+      [avatarUrl, req.user.id]
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "User profile avatar uploaded and linked successfully",
+      data: {
+        userId: req.user.id,
+        avatarUrl,
+        filename: req.file.filename,
+        sizeBytes: req.file.size,
+        mimeType: req.file.mimetype
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// POST /api/books/:id/cover - Protected: Upload book cover image
+app.post("/api/books/:id/cover", authenticateToken, validateIdParam, handleUpload("cover"), async (req, res, next) => {
+  const bookId = parseInt(req.params.id, 10);
+
+  try {
+    const bookCheck = await pool.query("SELECT id, title FROM books WHERE id = $1", [bookId]);
+    if (bookCheck.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: `Book with id ${bookId} not found`,
+        error: { code: "NOT_FOUND" }
+      });
+    }
+
+    const coverImageUrl = `${req.protocol}://${req.get("host")}/uploads/covers/${req.file.filename}`;
+
+    await pool.query(
+      "UPDATE books SET cover_image_url = $1 WHERE id = $2",
+      [coverImageUrl, bookId]
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Book cover image uploaded and linked successfully for '${bookCheck.rows[0].title}'`,
+      data: {
+        bookId,
+        title: bookCheck.rows[0].title,
+        coverImageUrl,
+        filename: req.file.filename,
+        sizeBytes: req.file.size,
+        mimeType: req.file.mimetype
+      }
     });
   } catch (err) {
     next(err);
@@ -217,7 +288,7 @@ app.get("/api/authors/:id/books", validateIdParam, async (req, res, next) => {
     }
 
     const booksResult = await pool.query(
-      "SELECT id, title, genre, published_year AS \"publishedYear\", available, created_at AS \"createdAt\" FROM books WHERE author_id = $1 ORDER BY id ASC",
+      "SELECT id, title, genre, published_year AS \"publishedYear\", available, cover_image_url AS \"coverImageUrl\", created_at AS \"createdAt\" FROM books WHERE author_id = $1 ORDER BY id ASC",
       [authorId]
     );
 
@@ -266,7 +337,6 @@ app.get("/api/books", validateBookQuery, async (req, res, next) => {
   let sortBy = req.query.sortBy || "id";
   let sortOrder = (req.query.sortOrder || "ASC").toUpperCase();
 
-  // Map sort parameters to exact SQL columns
   const validSortColumns = {
     id: "b.id",
     title: "b.title",
@@ -277,7 +347,6 @@ app.get("/api/books", validateBookQuery, async (req, res, next) => {
   if (!["ASC", "DESC"].includes(sortOrder)) sortOrder = "ASC";
 
   try {
-    // Dynamic SQL Query Builder
     let whereClauses = [];
     let queryParams = [];
     let paramIndex = 1;
@@ -308,13 +377,11 @@ app.get("/api/books", validateBookQuery, async (req, res, next) => {
 
     const whereSql = whereClauses.length > 0 ? "WHERE " + whereClauses.join(" AND ") : "";
 
-    // 1. Get total matching items count
     const countQuery = `SELECT COUNT(*) FROM books b ${whereSql}`;
     const countResult = await pool.query(countQuery, queryParams);
     const totalItems = parseInt(countResult.rows[0].count, 10);
     const totalPages = Math.ceil(totalItems / limit) || 1;
 
-    // 2. Fetch paginated data
     const dataQuery = `
       SELECT 
         b.id, 
@@ -322,6 +389,7 @@ app.get("/api/books", validateBookQuery, async (req, res, next) => {
         b.genre, 
         b.published_year AS "publishedYear", 
         b.available, 
+        b.cover_image_url AS "coverImageUrl",
         b.created_at AS "createdAt",
         json_build_object(
           'id', a.id,
@@ -368,6 +436,7 @@ app.get("/api/books/:id", validateIdParam, async (req, res, next) => {
         b.genre, 
         b.published_year AS "publishedYear", 
         b.available, 
+        b.cover_image_url AS "coverImageUrl",
         b.created_at AS "createdAt",
         json_build_object(
           'id', a.id,
@@ -403,7 +472,6 @@ app.post("/api/books", authenticateToken, validateBook, async (req, res, next) =
   const { title, genre, publishedYear, available, authorId } = req.body;
 
   try {
-    // Check if author exists
     const authorCheck = await pool.query("SELECT id FROM authors WHERE id = $1", [authorId]);
     if (authorCheck.rows.length === 0) {
       return res.status(404).json({
@@ -442,7 +510,6 @@ app.put("/api/books/:id", authenticateToken, validateIdParam, validateBook, asyn
   const { title, genre, publishedYear, available, authorId } = req.body;
 
   try {
-    // Check if author exists
     const authorCheck = await pool.query("SELECT id FROM authors WHERE id = $1", [authorId]);
     if (authorCheck.rows.length === 0) {
       return res.status(404).json({
@@ -536,7 +603,8 @@ app.get("/api/books/:id/reviews", validateIdParam, async (req, res, next) => {
         r.created_at AS "createdAt",
         json_build_object(
           'id', u.id,
-          'username', u.username
+          'username', u.username,
+          'avatarUrl', u.avatar_url
         ) AS user
       FROM reviews r
       JOIN users u ON r.user_id = u.id
@@ -545,7 +613,6 @@ app.get("/api/books/:id/reviews", validateIdParam, async (req, res, next) => {
     `;
     const result = await pool.query(query, [bookId]);
 
-    // Calculate average rating
     const avgResult = await pool.query("SELECT AVG(rating)::numeric(10,1) AS average FROM reviews WHERE book_id = $1", [bookId]);
     const averageRating = avgResult.rows[0].average ? parseFloat(avgResult.rows[0].average) : null;
 

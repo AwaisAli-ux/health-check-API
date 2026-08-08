@@ -356,6 +356,9 @@
       <button class="tab-btn" onclick="switchTab('pagination')">
         <i class="fa-solid fa-book-open"></i> Search & Pagination
       </button>
+      <button class="tab-btn" onclick="switchTab('upload')">
+        <i class="fa-solid fa-cloud-arrow-up"></i> Upload Files
+      </button>
       <button class="tab-btn" onclick="switchTab('validation')">
         <i class="fa-solid fa-bug"></i> Break API Demo
       </button>
@@ -574,6 +577,58 @@
       </form>
     </div>
 
+    <!-- 6. FILE UPLOADS CARD -->
+    <div id="upload-card" class="card">
+      <div class="card-title">
+        <i class="fa-solid fa-cloud-arrow-up" style="color: var(--accent-cyan);"></i>
+        File Uploads, Storage & Database Linking
+      </div>
+
+      <p style="color: var(--text-muted); margin-bottom: 1.5rem; font-size: 0.9rem;">
+        Upload real image/document files (max 5MB, JPG/PNG/WEBP/GIF/PDF), generate public URLs, and link them to PostgreSQL database records.
+      </p>
+
+      <!-- Avatar Upload Form -->
+      <div class="card-title" style="font-size: 1.1rem;">
+        <i class="fa-solid fa-user-gear" style="color: var(--accent-purple);"></i>
+        1. Upload Profile Avatar (`POST /api/users/avatar`)
+      </div>
+
+      <form id="avatar-form" onsubmit="handleUploadAvatar(event)" style="margin-bottom: 2rem;">
+        <div class="form-group">
+          <label>Select Avatar Image File</label>
+          <input type="file" id="avatar-file-input" accept="image/*,.pdf" required>
+        </div>
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-upload"></i> Upload & Link Profile Avatar
+        </button>
+      </form>
+
+      <hr style="border-color: rgba(255,255,255,0.08); margin: 1.5rem 0;">
+
+      <!-- Book Cover Upload Form -->
+      <div class="card-title" style="font-size: 1.1rem;">
+        <i class="fa-solid fa-file-image" style="color: var(--accent-green);"></i>
+        2. Upload Book Cover Image (`POST /api/books/:id/cover`)
+      </div>
+
+      <form id="cover-form" onsubmit="handleUploadBookCover(event)">
+        <div class="grid-2">
+          <div class="form-group">
+            <label>Book ID</label>
+            <input type="number" id="cover-book-id" value="1" required>
+          </div>
+          <div class="form-group">
+            <label>Select Cover Image</label>
+            <input type="file" id="cover-file-input" accept="image/*,.pdf" required>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, var(--accent-green), #047857);">
+          <i class="fa-solid fa-upload"></i> Upload & Link Book Cover Image
+        </button>
+      </form>
+    </div>
+
     <!-- 4. INTENTIONALLY BREAK API CARD -->
     <div id="validation-card" class="card">
       <div class="card-title">
@@ -667,8 +722,11 @@
         document.querySelectorAll(".tab-btn")[3].classList.add("active");
         document.getElementById("pagination-card").classList.add("active");
         loadPaginatedBooks(1);
-      } else if (tabName === 'validation') {
+      } else if (tabName === 'upload') {
         document.querySelectorAll(".tab-btn")[4].classList.add("active");
+        document.getElementById("upload-card").classList.add("active");
+      } else if (tabName === 'validation') {
+        document.querySelectorAll(".tab-btn")[5].classList.add("active");
         document.getElementById("validation-card").classList.add("active");
       }
     }
@@ -985,6 +1043,74 @@
           alert("⭐ Review submitted successfully!");
           document.getElementById("review-comment").value = "";
           fetchBookReviews();
+        }
+      } catch (err) {
+        updateConsole(500, { error: err.message });
+      }
+    }
+
+    // --- FILE UPLOAD HANDLERS ---
+    async function handleUploadAvatar(e) {
+      e.preventDefault();
+      if (!currentToken) {
+        alert("⚠️ Please login first to acquire a JWT Token!");
+        switchTab('login');
+        return;
+      }
+
+      const fileInput = document.getElementById("avatar-file-input");
+      if (!fileInput.files[0]) return alert("Please select a file!");
+
+      const formData = new FormData();
+      formData.append("avatar", fileInput.files[0]);
+
+      try {
+        const res = await fetch("/api/users/avatar", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${currentToken}`
+          },
+          body: formData
+        });
+        const data = await res.json();
+        updateConsole(res.status, data);
+
+        if (res.status === 200) {
+          alert("🖼️ Avatar uploaded and linked to user profile successfully!");
+        }
+      } catch (err) {
+        updateConsole(500, { error: err.message });
+      }
+    }
+
+    async function handleUploadBookCover(e) {
+      e.preventDefault();
+      if (!currentToken) {
+        alert("⚠️ Please login first to acquire a JWT Token!");
+        switchTab('login');
+        return;
+      }
+
+      const bookId = document.getElementById("cover-book-id").value;
+      const fileInput = document.getElementById("cover-file-input");
+      if (!fileInput.files[0]) return alert("Please select a file!");
+
+      const formData = new FormData();
+      formData.append("cover", fileInput.files[0]);
+
+      try {
+        const res = await fetch(`/api/books/${bookId}/cover`, {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${currentToken}`
+          },
+          body: formData
+        });
+        const data = await res.json();
+        updateConsole(res.status, data);
+
+        if (res.status === 200) {
+          alert(`🖼️ Book cover image uploaded and linked to Book #${bookId} successfully!`);
         }
       } catch (err) {
         updateConsole(500, { error: err.message });
