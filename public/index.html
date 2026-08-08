@@ -793,8 +793,9 @@
         const data = await res.json();
         updateConsole(res.status, data);
 
-        if (res.status === 200 && data.token) {
-          showToken(data.token);
+        const token = (data.data && data.data.token) ? data.data.token : data.token;
+        if (res.status === 200 && token) {
+          showToken(token);
           alert("🔓 Login successful! JWT Token generated and saved.");
         }
       } catch (err) {
